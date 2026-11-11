@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
@@ -21,6 +22,9 @@ class VerticalPlayerScreen extends StatefulWidget {
 
 class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
   late PlayerProvider _playerProvider;
+  bool _showForwardFeedback = false;
+  bool _showRewindFeedback = false;
+  Timer? _feedbackTimer;
 
   @override
   void initState() {
@@ -31,8 +35,37 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
 
   @override
   void dispose() {
+    _feedbackTimer?.cancel();
     _playerProvider.dispose();
     super.dispose();
+  }
+
+  void _triggerDoubleTap(TapDownDetails details, double screenWidth) {
+    _feedbackTimer?.cancel();
+    if (details.globalPosition.dx > screenWidth / 2) {
+      // Mitad derecha: adelantar 10 segundos
+      _playerProvider.forward10Seconds();
+      setState(() {
+        _showForwardFeedback = true;
+        _showRewindFeedback = false;
+      });
+    } else {
+      // Mitad izquierda: retroceder 10 segundos
+      _playerProvider.rewind10Seconds();
+      setState(() {
+        _showRewindFeedback = true;
+        _showForwardFeedback = false;
+      });
+    }
+
+    _feedbackTimer = Timer(const Duration(milliseconds: 700), () {
+      if (mounted) {
+        setState(() {
+          _showForwardFeedback = false;
+          _showRewindFeedback = false;
+        });
+      }
+    });
   }
 
   void _showEpisodesBottomSheet() {
@@ -141,6 +174,8 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return ChangeNotifierProvider.value(
       value: _playerProvider,
       child: Consumer<PlayerProvider>(
@@ -152,6 +187,7 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
             backgroundColor: Colors.black,
             body: GestureDetector(
               onTap: () => player.toggleControls(),
+              onDoubleTapDown: (details) => _triggerDoubleTap(details, screenWidth),
               onVerticalDragEnd: (details) {
                 // Deslizar hacia arriba = siguiente capítulo
                 if (details.primaryVelocity! < -300) {
@@ -206,6 +242,58 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                             CircularProgressIndicator(color: Colors.redAccent),
                             SizedBox(height: 12),
                             Text('Cargando capítulo...', style: TextStyle(color: Colors.white70)),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // Indicador de avance (+10s) con doble toque
+                  if (_showForwardFeedback)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 32),
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(color: Colors.white24),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.fast_forward, color: Colors.white, size: 28),
+                            SizedBox(width: 6),
+                            Text(
+                              '+10s',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // Indicador de retroceso (-10s) con doble toque
+                  if (_showRewindFeedback)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        margin: const EdgeInsets.only(left: 32),
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(color: Colors.white24),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.fast_rewind, color: Colors.white, size: 28),
+                            SizedBox(width: 6),
+                            Text(
+                              '-10s',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
                           ],
                         ),
                       ),
@@ -402,10 +490,10 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                                       // Indicador de gesto
                                       const Row(
                                         children: [
-                                          Icon(Icons.keyboard_arrow_up, color: Colors.white54, size: 16),
+                                          Icon(Icons.touch_app, color: Colors.white54, size: 14),
                                           SizedBox(width: 4),
                                           Text(
-                                            'Desliza',
+                                            '2x tap: ±10s',
                                             style: TextStyle(color: Colors.white54, fontSize: 11),
                                           ),
                                         ],

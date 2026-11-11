@@ -188,6 +188,23 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void forward10Seconds() {
+    if (_controller == null || !_controller!.value.isInitialized) return;
+    final current = _controller!.value.position;
+    final max = _controller!.value.duration;
+    final target = current + const Duration(seconds: 10);
+    _controller!.seekTo(target < max ? target : max);
+    notifyListeners();
+  }
+
+  void rewind10Seconds() {
+    if (_controller == null || !_controller!.value.isInitialized) return;
+    final current = _controller!.value.position;
+    final target = current - const Duration(seconds: 10);
+    _controller!.seekTo(target > Duration.zero ? target : Duration.zero);
+    notifyListeners();
+  }
+
   void seekTo(Duration position) {
     _controller?.seekTo(position);
   }
