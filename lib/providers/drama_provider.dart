@@ -75,7 +75,10 @@ class DramaProvider extends ChangeNotifier {
   Future<DramaModel> prepareDramaForPlay(DramaModel drama) async {
     if (drama.episodes.isEmpty) {
       final loaded = await DramaService.loadEpisodesForDrama(drama);
-      return loaded;
+      return loaded.copyWith(
+        lastWatchedEpisodeIndex: drama.lastWatchedEpisodeIndex,
+        lastWatchedPositionSeconds: drama.lastWatchedPositionSeconds,
+      );
     }
     return drama;
   }

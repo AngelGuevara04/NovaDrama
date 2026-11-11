@@ -32,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (!silent && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Ya cuentas con la versión más reciente de NovaDrama (v1.0.0+2).'),
+          content: Text('Ya cuentas con la versión más reciente de NovaDrama (v1.0.0+3).'),
           duration: Duration(seconds: 2),
         ),
       );
@@ -54,14 +54,22 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context).pop();
 
     if (readyDrama.episodes.isNotEmpty) {
-      Navigator.of(context).push(
+      final initialEp = drama.lastWatchedEpisodeIndex.clamp(0, readyDrama.episodes.length - 1);
+      final initialSec = drama.lastWatchedPositionSeconds;
+
+      await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => VerticalPlayerScreen(
             drama: readyDrama,
-            initialEpisodeIndex: readyDrama.lastWatchedEpisodeIndex,
+            initialEpisodeIndex: initialEp,
+            initialPositionSeconds: initialSec,
           ),
         ),
       );
+
+      if (mounted) {
+        context.read<DramaProvider>().loadHistory();
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Cargando capítulos del drama... intenta de nuevo.')),

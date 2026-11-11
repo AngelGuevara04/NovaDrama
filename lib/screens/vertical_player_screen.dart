@@ -9,11 +9,13 @@ import '../providers/player_provider.dart';
 class VerticalPlayerScreen extends StatefulWidget {
   final DramaModel drama;
   final int initialEpisodeIndex;
+  final int initialPositionSeconds;
 
   const VerticalPlayerScreen({
     super.key,
     required this.drama,
     this.initialEpisodeIndex = 0,
+    this.initialPositionSeconds = 0,
   });
 
   @override
@@ -30,7 +32,11 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
   void initState() {
     super.initState();
     _playerProvider = PlayerProvider();
-    _playerProvider.initDrama(widget.drama, initialIndex: widget.initialEpisodeIndex);
+    _playerProvider.initDrama(
+      widget.drama,
+      initialIndex: widget.initialEpisodeIndex,
+      initialPositionSeconds: widget.initialPositionSeconds,
+    );
   }
 
   @override
@@ -43,14 +49,12 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
   void _triggerDoubleTap(TapDownDetails details, double screenWidth) {
     _feedbackTimer?.cancel();
     if (details.globalPosition.dx > screenWidth / 2) {
-      // Mitad derecha: adelantar 10 segundos
       _playerProvider.forward10Seconds();
       setState(() {
         _showForwardFeedback = true;
         _showRewindFeedback = false;
       });
     } else {
-      // Mitad izquierda: retroceder 10 segundos
       _playerProvider.rewind10Seconds();
       setState(() {
         _showRewindFeedback = true;
@@ -183,13 +187,30 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
           final controller = player.controller;
           final isInitialized = controller != null && controller.value.isInitialized;
 
+          // Configuración de encuadre dinámico
+          BoxFit fit;
+          Alignment alignment;
+          switch (player.fitMode) {
+            case VideoFitMode.focusDramaRight:
+              fit = BoxFit.cover;
+              alignment = const Alignment(0.72, 0.0); // Encuadra perfectamente el drama a la derecha
+              break;
+            case VideoFitMode.coverCenter:
+              fit = BoxFit.cover;
+              alignment = Alignment.center;
+              break;
+            case VideoFitMode.contain:
+              fit = BoxFit.contain;
+              alignment = Alignment.center;
+              break;
+          }
+
           return Scaffold(
             backgroundColor: Colors.black,
             body: GestureDetector(
               onTap: () => player.toggleControls(),
               onDoubleTapDown: (details) => _triggerDoubleTap(details, screenWidth),
               onVerticalDragEnd: (details) {
-                // Deslizar hacia arriba = siguiente capítulo
                 if (details.primaryVelocity! < -300) {
                   if (player.hasNextEpisode) {
                     player.nextEpisode();
@@ -198,9 +219,7 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                       const SnackBar(content: Text('Estás en el último episodio.')),
                     );
                   }
-                }
-                // Deslizar hacia abajo = capítulo anterior
-                else if (details.primaryVelocity! > 300) {
+                } else if (details.primaryVelocity! > 300) {
                   if (player.hasPreviousEpisode) {
                     player.previousEpisode();
                   } else {
@@ -213,16 +232,21 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Video escalado (Full Screen vertical o Contain)
+                  // Video interactivo con zoom y encuadre
                   if (isInitialized)
-                    SizedBox.expand(
-                      child: FittedBox(
-                        fit: player.videoFit,
-                        clipBehavior: Clip.hardEdge,
-                        child: SizedBox(
-                          width: controller.value.size.width,
-                          height: controller.value.size.height,
-                          child: VideoPlayer(controller),
+                    InteractiveViewer(
+                      minScale: 0.8,
+                      maxScale: 5.0,
+                      child: SizedBox.expand(
+                        child: FittedBox(
+                          fit: fit,
+                          alignment: alignment,
+                          clipBehavior: Clip.hardEdge,
+                          child: SizedBox(
+                            width: controller.value.size.width,
+                            height: controller.value.size.height,
+                            child: VideoPlayer(controller),
+                          ),
                         ),
                       ),
                     )
@@ -247,7 +271,7 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                       ),
                     ),
 
-                  // Indicador de avance (+10s) con doble toque
+                  // Indicador de avance (+10s)
                   if (_showForwardFeedback)
                     Align(
                       alignment: Alignment.centerRight,
@@ -273,7 +297,7 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                       ),
                     ),
 
-                  // Indicador de retroceso (-10s) con doble toque
+                  // Indicador de retroceso (-10s)
                   if (_showRewindFeedback)
                     Align(
                       alignment: Alignment.centerLeft,
@@ -378,16 +402,20 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                                       ],
                                     ),
                                   ),
-                                  // Botón de Modo Pantalla Completa / Ajuste
+                                  // Botón de alternar modo de encuadre
                                   IconButton(
-                                    icon: Icon(
-                                      player.videoFit == BoxFit.cover ? Icons.fullscreen_exit : Icons.fullscreen,
-                                      color: Colors.white,
-                                    ),
-                                    tooltip: player.videoFit == BoxFit.cover
-                                        ? 'Ver original centrado'
-                                        : 'Llenar pantalla completa',
-                                    onPressed: () => player.toggleVideoFit(),
+                                    icon: const Icon(Icons.aspect_ratio, color: Colors.white),
+                                    tooltip: 'Cambiar encuadre',
+                                    onPressed: () {
+                                      player.cycleFitMode();
+                                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Modo de imagen: ${player.fitModeLabel}'),
+                                          duration: const Duration(milliseconds: 1200),
+                                        ),
+                                      );
+                                    },
                                   ),
                                   // Botón de Favorito
                                   Consumer<DramaProvider>(
@@ -434,71 +462,84 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Botonera de acciones (Episodios, Velocidad, Ajuste)
-                                  Row(
-                                    children: [
-                                      // Botón Lista de Episodios
-                                      ElevatedButton.icon(
-                                        onPressed: _showEpisodesBottomSheet,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.white24,
-                                          foregroundColor: Colors.white,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(20),
+                                  // Botonera de acciones (Episodios, Velocidad, Encuadre)
+                                  SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      children: [
+                                        // Botón Lista de Episodios
+                                        ElevatedButton.icon(
+                                          onPressed: _showEpisodesBottomSheet,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.white24,
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(20),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                           ),
-                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                        ),
-                                        icon: const Icon(Icons.format_list_numbered, size: 16),
-                                        label: Text(
-                                          'Cap. ${player.currentIndex + 1}/${widget.drama.totalEpisodes}',
-                                          style: const TextStyle(fontSize: 13),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      // Botón Velocidad
-                                      ElevatedButton.icon(
-                                        onPressed: _showSpeedDialog,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.white24,
-                                          foregroundColor: Colors.white,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(20),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        ),
-                                        icon: const Icon(Icons.speed, size: 16),
-                                        label: Text('${player.playbackSpeed}x'),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      // Botón de ajuste de escala
-                                      InkWell(
-                                        onTap: () => player.toggleVideoFit(),
-                                        borderRadius: BorderRadius.circular(20),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white24,
-                                            borderRadius: BorderRadius.circular(20),
-                                          ),
-                                          child: Text(
-                                            player.videoFit == BoxFit.cover ? 'Pantalla Completa' : 'Original',
-                                            style: const TextStyle(color: Colors.white, fontSize: 12),
+                                          icon: const Icon(Icons.format_list_numbered, size: 16),
+                                          label: Text(
+                                            'Cap. ${player.currentIndex + 1}/${widget.drama.totalEpisodes}',
+                                            style: const TextStyle(fontSize: 13),
                                           ),
                                         ),
-                                      ),
-                                      const Spacer(),
-                                      // Indicador de gesto
-                                      const Row(
-                                        children: [
-                                          Icon(Icons.touch_app, color: Colors.white54, size: 14),
-                                          SizedBox(width: 4),
-                                          Text(
-                                            '2x tap: ±10s',
-                                            style: TextStyle(color: Colors.white54, fontSize: 11),
+                                        const SizedBox(width: 8),
+                                        // Botón Velocidad
+                                        ElevatedButton.icon(
+                                          onPressed: _showSpeedDialog,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.white24,
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(20),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                           ),
-                                        ],
-                                      ),
-                                    ],
+                                          icon: const Icon(Icons.speed, size: 16),
+                                          label: Text('${player.playbackSpeed}x'),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        // Botón de ajuste de encuadre
+                                        InkWell(
+                                          onTap: () {
+                                            player.cycleFitMode();
+                                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('Modo de imagen: ${player.fitModeLabel}'),
+                                                duration: const Duration(milliseconds: 1200),
+                                              ),
+                                            );
+                                          },
+                                          borderRadius: BorderRadius.circular(20),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.redAccent.withAlpha(200),
+                                              borderRadius: BorderRadius.circular(20),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.crop, color: Colors.white, size: 14),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  player.fitModeLabel,
+                                                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        // Indicador de gestos
+                                        const Text(
+                                          'Doble toque: ±10s | Pellizca para zoom',
+                                          style: TextStyle(color: Colors.white54, fontSize: 11),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                   const SizedBox(height: 12),
 

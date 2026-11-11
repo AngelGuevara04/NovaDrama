@@ -22,7 +22,7 @@ class ReleaseInfo {
 }
 
 class UpdaterService {
-  static const String currentVersion = '1.0.0+2';
+  static const String currentVersion = '1.0.0+3';
   static const String repoOwner = 'AngelGuevara04';
   static const String repoName = 'NovaDrama';
   static const MethodChannel _channel = MethodChannel('com.ajgm1.novadrama/updater');

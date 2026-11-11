@@ -7,6 +7,12 @@ import '../models/episode_model.dart';
 import '../services/drama_service.dart';
 import '../services/storage_service.dart';
 
+enum VideoFitMode {
+  focusDramaRight, // Enfoca la mitad derecha (elimina el fondo de pantalla partida)
+  coverCenter,     // Pantalla completa centrado
+  contain,         // Original completo con barras negras
+}
+
 class PlayerProvider extends ChangeNotifier {
   DramaModel? _currentDrama;
   int _currentIndex = 0;
@@ -16,7 +22,7 @@ class PlayerProvider extends ChangeNotifier {
   String? _errorMessage;
   double _playbackSpeed = 1.0;
   bool _showControls = true;
-  BoxFit _videoFit = BoxFit.cover; // Pantalla completa vertical por defecto
+  VideoFitMode _fitMode = VideoFitMode.focusDramaRight;
   Timer? _controlsTimer;
   Timer? _progressSaveTimer;
 
@@ -27,7 +33,7 @@ class PlayerProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   double get playbackSpeed => _playbackSpeed;
   bool get showControls => _showControls;
-  BoxFit get videoFit => _videoFit;
+  VideoFitMode get fitMode => _fitMode;
 
   EpisodeModel? get currentEpisode {
     if (_currentDrama == null || _currentDrama!.episodes.isEmpty) return null;
@@ -37,22 +43,47 @@ class PlayerProvider extends ChangeNotifier {
 
   int get totalEpisodes => _currentDrama?.episodes.length ?? 0;
 
-  void toggleVideoFit() {
-    _videoFit = (_videoFit == BoxFit.cover) ? BoxFit.contain : BoxFit.cover;
+  void cycleFitMode() {
+    switch (_fitMode) {
+      case VideoFitMode.focusDramaRight:
+        _fitMode = VideoFitMode.coverCenter;
+        break;
+      case VideoFitMode.coverCenter:
+        _fitMode = VideoFitMode.contain;
+        break;
+      case VideoFitMode.contain:
+        _fitMode = VideoFitMode.focusDramaRight;
+        break;
+    }
     notifyListeners();
   }
 
-  Future<void> initDrama(DramaModel drama, {int initialIndex = 0}) async {
+  String get fitModeLabel {
+    switch (_fitMode) {
+      case VideoFitMode.focusDramaRight:
+        return 'Enfocar Drama (Derecha)';
+      case VideoFitMode.coverCenter:
+        return 'Pantalla Completa';
+      case VideoFitMode.contain:
+        return 'Original Completo';
+    }
+  }
+
+  Future<void> initDrama(
+    DramaModel drama, {
+    int initialIndex = 0,
+    int initialPositionSeconds = 0,
+  }) async {
     _currentDrama = drama;
     _currentIndex = initialIndex.clamp(0, (drama.episodes.length - 1).clamp(0, 9999));
     notifyListeners();
 
     await WakelockPlus.enable();
-    await _loadEpisode(_currentIndex);
+    await _loadEpisode(_currentIndex, initialSeekSeconds: initialPositionSeconds);
     _startProgressTimer();
   }
 
-  Future<void> _loadEpisode(int index) async {
+  Future<void> _loadEpisode(int index, {int initialSeekSeconds = 0}) async {
     if (_currentDrama == null || index < 0 || index >= _currentDrama!.episodes.length) {
       return;
     }
@@ -65,9 +96,10 @@ class PlayerProvider extends ChangeNotifier {
     if (_controller != null &&
         _controller!.value.isInitialized &&
         _currentLoadedVideoId == episode.videoUrl) {
-      _controller!.seekTo(Duration(seconds: episode.startSeconds));
+      final targetSeconds = initialSeekSeconds > 0 ? initialSeekSeconds : episode.startSeconds;
+      await _controller!.seekTo(Duration(seconds: targetSeconds));
       if (!_controller!.value.isPlaying) {
-        _controller!.play();
+        await _controller!.play();
       }
       notifyListeners();
       return;
@@ -106,8 +138,9 @@ class PlayerProvider extends ChangeNotifier {
       await controller.initialize();
       await controller.setPlaybackSpeed(_playbackSpeed);
 
-      if (episode.startSeconds > 0) {
-        await controller.seekTo(Duration(seconds: episode.startSeconds));
+      final targetSeconds = initialSeekSeconds > 0 ? initialSeekSeconds : episode.startSeconds;
+      if (targetSeconds > 0) {
+        await controller.seekTo(Duration(seconds: targetSeconds));
       }
 
       await controller.play();
@@ -131,7 +164,6 @@ class PlayerProvider extends ChangeNotifier {
 
     final ep = currentEpisode;
     if (ep != null && ep.endSeconds > 0) {
-      // Si estamos en un capítulo de video compilado y llegamos al final del capítulo
       if (_controller!.value.position.inSeconds >= ep.endSeconds) {
         if (hasNextEpisode) {
           nextEpisode();
@@ -140,7 +172,6 @@ class PlayerProvider extends ChangeNotifier {
       }
     }
 
-    // Fin normal del video
     if (_controller!.value.position >= _controller!.value.duration &&
         _controller!.value.duration > Duration.zero) {
       if (hasNextEpisode) {
@@ -176,15 +207,10 @@ class PlayerProvider extends ChangeNotifier {
     if (_controller == null || !_controller!.value.isInitialized) return;
     if (_controller!.value.isPlaying) {
       _controller!.pause();
+      _saveCurrentProgress();
     } else {
       _controller!.play();
     }
-    notifyListeners();
-  }
-
-  void setPlaybackSpeed(double speed) {
-    _playbackSpeed = speed;
-    _controller?.setPlaybackSpeed(speed);
     notifyListeners();
   }
 
@@ -202,6 +228,12 @@ class PlayerProvider extends ChangeNotifier {
     final current = _controller!.value.position;
     final target = current - const Duration(seconds: 10);
     _controller!.seekTo(target > Duration.zero ? target : Duration.zero);
+    notifyListeners();
+  }
+
+  void setPlaybackSpeed(double speed) {
+    _playbackSpeed = speed;
+    _controller?.setPlaybackSpeed(speed);
     notifyListeners();
   }
 
@@ -255,19 +287,21 @@ class PlayerProvider extends ChangeNotifier {
 
   void _startProgressTimer() {
     _progressSaveTimer?.cancel();
-    _progressSaveTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+    _progressSaveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _saveCurrentProgress();
     });
   }
 
   void _saveCurrentProgress() {
-    if (_currentDrama == null || _controller == null) return;
+    if (_currentDrama == null || _controller == null || !_controller!.value.isInitialized) return;
     final pos = _controller!.value.position.inSeconds;
-    StorageService.saveProgress(
-      drama: _currentDrama!,
-      episodeIndex: _currentIndex,
-      positionSeconds: pos,
-    );
+    if (pos > 0) {
+      StorageService.saveProgress(
+        drama: _currentDrama!,
+        episodeIndex: _currentIndex,
+        positionSeconds: pos,
+      );
+    }
   }
 
   @override
