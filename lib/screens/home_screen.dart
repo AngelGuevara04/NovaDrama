@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../models/drama_model.dart';
 import '../providers/drama_provider.dart';
@@ -51,22 +50,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     final readyDrama = await dramaProv.prepareDramaForPlay(drama);
-    if (mounted) {
-      Navigator.of(context).pop();
-      if (readyDrama.episodes.isNotEmpty) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => VerticalPlayerScreen(
-              drama: readyDrama,
-              initialEpisodeIndex: readyDrama.lastWatchedEpisodeIndex,
-            ),
+    if (!mounted) return;
+    Navigator.of(context).pop();
+
+    if (readyDrama.episodes.isNotEmpty) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => VerticalPlayerScreen(
+            drama: readyDrama,
+            initialEpisodeIndex: readyDrama.lastWatchedEpisodeIndex,
           ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cargando capítulos del drama... intenta de nuevo.')),
-        );
-      }
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cargando capítulos del drama... intenta de nuevo.')),
+      );
     }
   }
 
@@ -85,7 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: Colors.redAccent,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(LucideIcons.film, color: Colors.white, size: 20),
+              child: const Icon(Icons.movie_creation_outlined, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 10),
             const Text(
@@ -96,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(LucideIcons.search, color: Colors.white),
+            icon: const Icon(Icons.search, color: Colors.white),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const SearchScreen()),
@@ -104,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(LucideIcons.refreshCw, color: Colors.white70),
+            icon: const Icon(Icons.refresh, color: Colors.white70),
             tooltip: 'Buscar actualizaciones',
             onPressed: () => _checkRemoteUpdate(silent: false),
           ),
@@ -131,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   // Continuar Viendo (Historial)
                   if (prov.history.isNotEmpty) ...[
-                    _buildSectionHeader('Continuar Viendo', LucideIcons.playCircle),
+                    _buildSectionHeader('Continuar Viendo', Icons.play_circle_fill),
                     const SizedBox(height: 12),
                     SizedBox(
                       height: 220,
@@ -152,7 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
 
                   // Dramas de Moda (Tendencias)
-                  _buildSectionHeader('Tendencias del Momento', LucideIcons.flame),
+                  _buildSectionHeader('Tendencias del Momento', Icons.local_fire_department),
                   const SizedBox(height: 12),
                   SizedBox(
                     height: 260,
@@ -173,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   // Mis Favoritos
                   if (prov.favorites.isNotEmpty) ...[
                     const SizedBox(height: 16),
-                    _buildSectionHeader('Mis Favoritos', LucideIcons.heart),
+                    _buildSectionHeader('Mis Favoritos', Icons.favorite),
                     const SizedBox(height: 12),
                     SizedBox(
                       height: 260,
@@ -232,7 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.redAccent.withOpacity(0.15),
+              color: Colors.redAccent.withAlpha(40),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -255,8 +254,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     end: Alignment.bottomCenter,
                     colors: [
                       Colors.transparent,
-                      Colors.black.withOpacity(0.5),
-                      Colors.black.withOpacity(0.95),
+                      Colors.black.withAlpha(130),
+                      Colors.black.withAlpha(240),
                     ],
                     stops: const [0.2, 0.6, 1.0],
                   ),
@@ -305,7 +304,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       ),
-                      icon: const Icon(LucideIcons.play, size: 16),
+                      icon: const Icon(Icons.play_arrow, size: 18),
                       label: const Text('Ver ahora gratis', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ],

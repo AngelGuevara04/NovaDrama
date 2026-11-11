@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import '../models/drama_model.dart';
 
 class DramaCard extends StatelessWidget {
@@ -40,13 +39,13 @@ class DramaCard extends StatelessWidget {
                     placeholder: (context, url) => Container(
                       color: const Color(0xFF252538),
                       child: const Center(
-                        child: Icon(LucideIcons.film, color: Colors.white24, size: 32),
+                        child: Icon(Icons.movie_outlined, color: Colors.white24, size: 32),
                       ),
                     ),
                     errorWidget: (context, url, error) => Container(
                       color: const Color(0xFF252538),
                       child: const Center(
-                        child: Icon(LucideIcons.imageOff, color: Colors.white24, size: 32),
+                        child: Icon(Icons.broken_image_outlined, color: Colors.white24, size: 32),
                       ),
                     ),
                   ),
@@ -61,14 +60,14 @@ class DramaCard extends StatelessWidget {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withOpacity(0.8),
+                          Colors.black.withAlpha(200),
                         ],
                         stops: const [0.6, 1.0],
                       ),
                     ),
                   ),
                 ),
-                // Badge de episodios o autor
+                // Badge de episodios
                 Positioned(
                   bottom: 8,
                   left: 8,
@@ -78,7 +77,7 @@ class DramaCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.redAccent.withOpacity(0.9),
+                          color: Colors.redAccent.withAlpha(230),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -91,7 +90,7 @@ class DramaCard extends StatelessWidget {
                         ),
                       ),
                       const Spacer(),
-                      const Icon(LucideIcons.playCircle, color: Colors.white, size: 18),
+                      const Icon(Icons.play_circle_fill, color: Colors.white, size: 20),
                     ],
                   ),
                 ),

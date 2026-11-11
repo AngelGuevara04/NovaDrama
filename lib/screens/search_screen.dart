@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../models/drama_model.dart';
 import '../providers/drama_provider.dart';
@@ -61,22 +60,22 @@ class _SearchScreenState extends State<SearchScreen> {
     );
 
     final readyDrama = await dramaProv.prepareDramaForPlay(drama);
-    if (mounted) {
-      Navigator.of(context).pop(); // Cerrar loader
-      if (readyDrama.episodes.isNotEmpty) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => VerticalPlayerScreen(
-              drama: readyDrama,
-              initialEpisodeIndex: readyDrama.lastWatchedEpisodeIndex,
-            ),
+    if (!mounted) return;
+    Navigator.of(context).pop(); // Cerrar loader
+
+    if (readyDrama.episodes.isNotEmpty) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => VerticalPlayerScreen(
+            drama: readyDrama,
+            initialEpisodeIndex: readyDrama.lastWatchedEpisodeIndex,
           ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se pudieron encontrar capítulos reproducibles para este drama.')),
-        );
-      }
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudieron encontrar capítulos reproducibles para este drama.')),
+      );
     }
   }
 
@@ -97,7 +96,7 @@ class _SearchScreenState extends State<SearchScreen> {
             border: InputBorder.none,
             suffixIcon: _controller.text.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(LucideIcons.x, color: Colors.grey),
+                    icon: const Icon(Icons.close, color: Colors.grey),
                     onPressed: () {
                       _controller.clear();
                       context.read<DramaProvider>().search('');
@@ -111,7 +110,7 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(LucideIcons.search, color: Colors.redAccent),
+            icon: const Icon(Icons.search, color: Colors.redAccent),
             onPressed: () => _onSearch(_controller.text),
           ),
         ],
@@ -136,7 +135,7 @@ class _SearchScreenState extends State<SearchScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(LucideIcons.film, size: 64, color: Colors.white24),
+                  const Icon(Icons.movie_creation_outlined, size: 64, color: Colors.white24),
                   const SizedBox(height: 16),
                   Text(
                     'No encontramos episodios para "${prov.currentQuery}"',

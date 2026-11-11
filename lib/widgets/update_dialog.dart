@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import '../services/updater_service.dart';
 
 class UpdateDialog extends StatefulWidget {
@@ -76,10 +75,10 @@ class _UpdateDialogState extends State<UpdateDialog> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.redAccent.withOpacity(0.2),
+              color: Colors.redAccent.withAlpha(50),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(LucideIcons.sparkles, color: Colors.redAccent, size: 24),
+            child: const Icon(Icons.auto_awesome, color: Colors.redAccent, size: 24),
           ),
           const SizedBox(width: 12),
           Expanded(

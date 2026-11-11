@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import '../models/drama_model.dart';
@@ -61,7 +60,7 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(LucideIcons.x, color: Colors.white70),
+                    icon: const Icon(Icons.close, color: Colors.white70),
                     onPressed: () => Navigator.of(ctx).pop(),
                   ),
                 ],
@@ -128,7 +127,7 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
             final isSelected = _playerProvider.playbackSpeed == speed;
             return ListTile(
               title: Text('${speed}x', style: TextStyle(color: isSelected ? Colors.redAccent : Colors.white)),
-              trailing: isSelected ? const Icon(LucideIcons.check, color: Colors.redAccent) : null,
+              trailing: isSelected ? const Icon(Icons.check, color: Colors.redAccent) : null,
               onTap: () {
                 _playerProvider.setPlaybackSpeed(speed);
                 Navigator.of(ctx).pop();
@@ -214,13 +213,13 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                         padding: const EdgeInsets.all(20),
                         margin: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1E1E2E).withOpacity(0.9),
+                          color: const Color(0xFF1E1E2E).withAlpha(230),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(LucideIcons.alertCircle, color: Colors.redAccent, size: 40),
+                            const Icon(Icons.error_outline, color: Colors.redAccent, size: 40),
                             const SizedBox(height: 12),
                             Text(
                               player.errorMessage!,
@@ -261,7 +260,7 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                               child: Row(
                                 children: [
                                   IconButton(
-                                    icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
+                                    icon: const Icon(Icons.arrow_back, color: Colors.white),
                                     onPressed: () => Navigator.of(context).pop(),
                                   ),
                                   const SizedBox(width: 8),
@@ -292,7 +291,7 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                                       final isFav = dramaProv.isFavorite(widget.drama.id);
                                       return IconButton(
                                         icon: Icon(
-                                          isFav ? LucideIcons.heart : LucideIcons.heart,
+                                          isFav ? Icons.favorite : Icons.favorite_border,
                                           color: isFav ? Colors.redAccent : Colors.white70,
                                         ),
                                         onPressed: () => dramaProv.toggleFavorite(widget.drama),
@@ -314,7 +313,7 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                                     shape: BoxShape.circle,
                                     border: Border.all(color: Colors.white30, width: 2),
                                   ),
-                                  child: const Icon(LucideIcons.play, color: Colors.white, size: 48),
+                                  child: const Icon(Icons.play_arrow, color: Colors.white, size: 48),
                                 ),
                               ),
 
@@ -345,7 +344,7 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                                           ),
                                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                         ),
-                                        icon: const Icon(LucideIcons.list, size: 16),
+                                        icon: const Icon(Icons.format_list_numbered, size: 16),
                                         label: Text(
                                           'Cap. ${player.currentIndex + 1}/${widget.drama.totalEpisodes}',
                                           style: const TextStyle(fontSize: 13),
@@ -363,14 +362,14 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                                           ),
                                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                         ),
-                                        icon: const Icon(LucideIcons.gauge, size: 16),
+                                        icon: const Icon(Icons.speed, size: 16),
                                         label: Text('${player.playbackSpeed}x'),
                                       ),
                                       const Spacer(),
                                       // Indicador de gesto
                                       const Row(
                                         children: [
-                                          Icon(LucideIcons.arrowUp, color: Colors.white54, size: 14),
+                                          Icon(Icons.keyboard_arrow_up, color: Colors.white54, size: 16),
                                           SizedBox(width: 4),
                                           Text(
                                             'Desliza para siguiente',
