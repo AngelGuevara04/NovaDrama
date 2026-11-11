@@ -65,9 +65,8 @@ class DramaService {
     return episodes;
   }
 
-  /// Dramas populares precargados con fuentes limpias verticales verificadas
+  /// Catálogo completo y enriquecido de dramas de moda
   static List<DramaModel> getFeaturedDramas() {
-    // 4Ng0WYUQtXA es el video oficial limpio en vertical de NetShort (2:36:52 = 9412 segundos)
     const poderAmantesVideoId = '4Ng0WYUQtXA';
     final poderAmantesEpisodes = createEpisodesFromFullVideo(
       videoId: poderAmantesVideoId,
@@ -121,17 +120,83 @@ class DramaService {
         genres: ['Fantasía', 'Romance', 'Magia'],
         episodes: [],
       ),
+      DramaModel(
+        id: 'drama_matrimonio_relampago',
+        title: 'Matrimonio relámpago con el multimillonario',
+        description:
+            'Tras romper su compromiso el mismo día de la boda, se casa al azar con un desconocido que resulta ser el hombre más rico de la ciudad.',
+        coverUrl:
+            'https://images.unsplash.com/photo-1519741497674-611481863552?w=600&auto=format&fit=crop&q=80',
+        author: 'GoodShort',
+        genres: ['CEO', 'Romance', 'Drama'],
+        episodes: [],
+      ),
+      DramaModel(
+        id: 'drama_venganza_exesposa',
+        title: 'La dulce venganza de la exesposa',
+        description:
+            'Durante tres años la trataron como a una sirvienta inútil. Al firmar el divorcio, revela su verdadera identidad como presidenta del conglomerado.',
+        coverUrl:
+            'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=600&auto=format&fit=crop&q=80',
+        author: 'DramaBox',
+        genres: ['Venganza', 'Drama', 'Romance'],
+        episodes: [],
+      ),
+      DramaModel(
+        id: 'drama_principe_lobo',
+        title: 'Reclamada por el alfa supremo',
+        description:
+            'Rechazada por su manada y su prometido, despierta el linaje ancestral de los lobos blancos y llama la atención del rey más temido.',
+        coverUrl:
+            'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&auto=format&fit=crop&q=80',
+        author: 'ReelShort',
+        genres: ['Fantasía', 'Hombres Lobo', 'Romance'],
+        episodes: [],
+      ),
+      DramaModel(
+        id: 'drama_chofer_magnate',
+        title: 'El chofer secreto que domina la ciudad',
+        description:
+            'La familia de su esposa lo desprecia por ser chofer sin saber que los magnates más poderosos del país se arrodillan ante él.',
+        coverUrl:
+            'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&auto=format&fit=crop&q=80',
+        author: 'ShortMax',
+        genres: ['CEO', 'Acción', 'Venganza'],
+        episodes: [],
+      ),
+      DramaModel(
+        id: 'drama_segunda_vida_emperatriz',
+        title: 'La segunda vida de la emperatriz caída',
+        description:
+            'Traicionada por su hermana y envenenada por su esposo, renace diez años atrás decidida a cambiar su destino y coronar a un nuevo soberano.',
+        coverUrl:
+            'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80',
+        author: 'NetShort',
+        genres: ['Reencarnación', 'Venganza', 'Fantasía'],
+        episodes: [],
+      ),
+      DramaModel(
+        id: 'drama_amor_inmortal',
+        title: 'El dios de la guerra y la médica celestial',
+        description:
+            'Él es invencible en el campo de batalla pero sufre una maldición mortal. Ella posee las agujas doradas capaces de curar a dioses y reyes.',
+        coverUrl:
+            'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600&auto=format&fit=crop&q=80',
+        author: 'DramaBox',
+        genres: ['Fantasía', 'Romance', 'Artes Marciales'],
+        episodes: [],
+      ),
     ];
   }
 
-  /// Busca dramas filtrando canales trampa y organizando capítulos reales
+  /// Busca dramas SIN LIMITES artificiales: obtiene todas las series y compilados limpios disponibles
   static Future<List<DramaModel>> searchDramas(String query) async {
     final List<DramaModel> results = [];
     try {
       final sanitizedQuery = query.trim();
       if (sanitizedQuery.isEmpty) return results;
 
-      // 1. Buscar playlists (series estructuradas)
+      // 1. Buscar playlists completas (series organizadas)
       final playlistSearch = await _yt.search.searchContent(
         '$sanitizedQuery drama capitulo completo',
       );
@@ -142,7 +207,7 @@ class DramaService {
 
           try {
             final playlist = await _yt.playlists.get(item.id);
-            final videoList = await _yt.playlists.getVideos(item.id).take(60).toList();
+            final videoList = await _yt.playlists.getVideos(item.id).take(80).toList();
 
             final cleanVideos = videoList.where((v) => !_isSpamTitle(v.title)).toList();
 
@@ -169,7 +234,7 @@ class DramaService {
                   title: playlist.title,
                   description: playlist.description.isNotEmpty
                       ? playlist.description
-                      : 'Serie con ${episodes.length} episodios completos.',
+                      : 'Serie completa con ${episodes.length} episodios.',
                   coverUrl: episodes.first.thumbnailUrl,
                   author: playlist.author,
                   playlistId: playlist.id.value,
@@ -184,16 +249,15 @@ class DramaService {
         }
       }
 
-      // 2. Buscar videos individuales filtrando los títulos trampa/reacciones
+      // 2. Búsqueda profunda de videos compilados y capítulos
       final videoQueries = [
-        '$sanitizedQuery netshort drama',
-        '$sanitizedQuery minidrama completo español',
+        '$sanitizedQuery netshort drama completo',
+        '$sanitizedQuery minidrama serie español',
         '$sanitizedQuery drama corto capitulo',
+        '$sanitizedQuery shortmax capitulos completos',
       ];
 
       for (var vQuery in videoQueries) {
-        if (results.length >= 8) break;
-
         final videoSearch = await _yt.search.search(vQuery);
 
         for (var v in videoSearch) {
@@ -202,9 +266,9 @@ class DramaService {
 
           final durationSec = v.duration?.inSeconds ?? 0;
 
-          // Si el video dura más de 12 minutos, es un drama completo compilado
-          if (durationSec > 720) {
-            final epCount = (durationSec / 180).clamp(10, 60).round();
+          // Si el video dura más de 8 minutos, es un compilado de episodios
+          if (durationSec > 480) {
+            final epCount = (durationSec / 180).clamp(5, 80).round();
             final eps = createEpisodesFromFullVideo(
               videoId: v.id.value,
               dramaTitle: v.title,
@@ -224,6 +288,29 @@ class DramaService {
                 episodes: eps,
               ),
             );
+          } else if (durationSec > 45) {
+            // Video corto individual de 1-3 minutos (capítulo vertical suelto)
+            results.add(
+              DramaModel(
+                id: 'vid_${v.id.value}',
+                title: v.title,
+                description: 'Capítulo corto de ${v.author}.',
+                coverUrl: v.thumbnails.highResUrl,
+                author: v.author,
+                genres: ['Episodio', 'Vertical'],
+                episodes: [
+                  EpisodeModel(
+                    id: v.id.value,
+                    title: v.title,
+                    episodeNumber: 1,
+                    videoUrl: v.id.value,
+                    thumbnailUrl: v.thumbnails.highResUrl,
+                    duration: Duration(seconds: durationSec),
+                    isYouTube: true,
+                  ),
+                ],
+              ),
+            );
           }
         }
       }
@@ -233,7 +320,7 @@ class DramaService {
     return results;
   }
 
-  /// Carga episodios para dramas de catálogo si no los tienen
+  /// Carga episodios para dramas de catálogo si aún no los tienen
   static Future<DramaModel> loadEpisodesForDrama(DramaModel drama) async {
     if (drama.episodes.isNotEmpty) {
       return drama;
@@ -274,18 +361,6 @@ class DramaService {
       debugPrint('Error extrayendo stream de $videoId: $e');
     }
     return null;
-  }
-
-  static Duration _parseDuration(String durationStr) {
-    try {
-      final parts = durationStr.split(':').map(int.parse).toList();
-      if (parts.length == 2) {
-        return Duration(minutes: parts[0], seconds: parts[1]);
-      } else if (parts.length == 3) {
-        return Duration(hours: parts[0], minutes: parts[1], seconds: parts[2]);
-      }
-    } catch (_) {}
-    return Duration.zero;
   }
 
   static void dispose() {

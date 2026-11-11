@@ -63,4 +63,12 @@ class StorageService {
     final rawList = history.map((d) => json.encode(d.toJson())).toList();
     await prefs.setStringList(_keyHistory, rawList);
   }
+
+  static Future<void> removeFromHistory(String dramaId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final history = await getHistory();
+    history.removeWhere((d) => d.id == dramaId);
+    final rawList = history.map((d) => json.encode(d.toJson())).toList();
+    await prefs.setStringList(_keyHistory, rawList);
+  }
 }

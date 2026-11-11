@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/drama_model.dart';
@@ -16,14 +17,19 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   late TextEditingController _controller;
+  Timer? _debounceTimer;
+
   final List<String> _suggestions = [
     'El poder viene de mis amantes',
     'El CEO multimillonario',
     'La verdadera heredera',
     'Mi esposo es un dragón',
+    'Matrimonio relámpago',
     'Venganza de amor',
+    'Alfa supremo lobo',
     'ShortMax drama',
     'NetShort español',
+    'DramaBox serie',
   ];
 
   @override
@@ -39,14 +45,31 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
-  void _onSearch(String query) {
-    if (query.trim().isNotEmpty) {
-      context.read<DramaProvider>().search(query.trim());
+  void _onQueryChanged(String query) {
+    _debounceTimer?.cancel();
+    final prov = context.read<DramaProvider>();
+
+    if (query.trim().isEmpty) {
+      prov.search('');
+      setState(() {});
+      return;
     }
+
+    // Filtrar de inmediato en memoria
+    prov.search(query.trim());
+
+    // Esperar 400ms tras teclear para buscar más en red
+    _debounceTimer = Timer(const Duration(milliseconds: 400), () {
+      if (mounted && _controller.text.trim().isNotEmpty) {
+        prov.search(_controller.text.trim());
+      }
+    });
+    setState(() {});
   }
 
   Future<void> _playDrama(BuildContext context, DramaModel drama) async {
@@ -61,7 +84,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
     final readyDrama = await dramaProv.prepareDramaForPlay(drama);
     if (!mounted) return;
-    Navigator.of(context).pop(); // Cerrar loader
+    Navigator.of(context).pop();
 
     if (readyDrama.episodes.isNotEmpty) {
       final initialEp = drama.lastWatchedEpisodeIndex.clamp(0, readyDrama.episodes.length - 1);
@@ -78,7 +101,7 @@ class _SearchScreenState extends State<SearchScreen> {
       );
 
       if (mounted) {
-        context.read<DramaProvider>().loadHistory();
+        dramaProv.loadHistory();
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -99,7 +122,7 @@ class _SearchScreenState extends State<SearchScreen> {
           autofocus: widget.initialQuery == null,
           style: const TextStyle(color: Colors.white, fontSize: 16),
           decoration: InputDecoration(
-            hintText: 'Buscar cualquier drama corto...',
+            hintText: 'Escribe para buscar cualquier drama...',
             hintStyle: const TextStyle(color: Colors.grey),
             border: InputBorder.none,
             suffixIcon: _controller.text.isNotEmpty
@@ -107,66 +130,33 @@ class _SearchScreenState extends State<SearchScreen> {
                     icon: const Icon(Icons.close, color: Colors.grey),
                     onPressed: () {
                       _controller.clear();
-                      context.read<DramaProvider>().search('');
-                      setState(() {});
+                      _onQueryChanged('');
                     },
                   )
                 : null,
           ),
-          onSubmitted: _onSearch,
-          onChanged: (text) => setState(() {}),
+          onChanged: _onQueryChanged,
+          onSubmitted: (query) => _onQueryChanged(query),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.search, color: Colors.redAccent),
-            onPressed: () => _onSearch(_controller.text),
+            onPressed: () => _onQueryChanged(_controller.text),
           ),
         ],
       ),
       body: Consumer<DramaProvider>(
         builder: (context, prov, child) {
-          if (prov.isLoadingSearch) {
-            return const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(color: Colors.redAccent),
-                  SizedBox(height: 16),
-                  Text('Rastreando episodios del drama...', style: TextStyle(color: Colors.white70)),
-                ],
-              ),
-            );
-          }
+          final results = prov.searchResults;
 
-          if (prov.searchResults.isEmpty && prov.currentQuery.isNotEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.movie_creation_outlined, size: 64, color: Colors.white24),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No encontramos episodios para "${prov.currentQuery}"',
-                    style: const TextStyle(color: Colors.white70, fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Intenta buscar por palabras clave o el título alternativo.',
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          if (prov.searchResults.isEmpty) {
-            return Padding(
+          if (results.isEmpty && prov.currentQuery.isEmpty) {
+            return SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Búsquedas populares',
+                    'Dramas y temas populares',
                     style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
@@ -175,12 +165,12 @@ class _SearchScreenState extends State<SearchScreen> {
                     runSpacing: 8,
                     children: _suggestions.map((sug) {
                       return ActionChip(
-                        label: Text(sug, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                        label: Text(sug, style: const TextStyle(color: Colors.white70, fontSize: 13)),
                         backgroundColor: const Color(0xFF1E1E2E),
                         side: const BorderSide(color: Color(0xFF28283E)),
                         onPressed: () {
                           _controller.text = sug;
-                          _onSearch(sug);
+                          _onQueryChanged(sug);
                         },
                       );
                     }).toList(),
@@ -190,24 +180,79 @@ class _SearchScreenState extends State<SearchScreen> {
             );
           }
 
-          return GridView.builder(
-            padding: const EdgeInsets.all(16),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.65,
-              crossAxisSpacing: 14,
-              mainAxisSpacing: 16,
-            ),
-            itemCount: prov.searchResults.length,
-            itemBuilder: (context, index) {
-              final drama = prov.searchResults[index];
-              return DramaCard(
-                drama: drama,
-                width: double.infinity,
-                height: 180,
-                onTap: () => _playDrama(context, drama),
-              );
-            },
+          if (results.isEmpty && !prov.isLoadingSearch) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.movie_creation_outlined, size: 64, color: Colors.white24),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No encontramos coincidencias para "${prov.currentQuery}"',
+                    style: const TextStyle(color: Colors.white70, fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Prueba con otra palabra clave como "CEO", "venganza" o "matrimonio".',
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Barra de estado de resultados
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Row(
+                  children: [
+                    Text(
+                      'Disponibles (${results.length})',
+                      style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const Spacer(),
+                    if (prov.isLoadingSearch)
+                      const Row(
+                        children: [
+                          SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.redAccent),
+                          ),
+                          SizedBox(width: 8),
+                          Text('Buscando más...', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+
+              // Rejilla de todos los dramas encontrados
+              Expanded(
+                child: GridView.builder(
+                  padding: const EdgeInsets.all(16),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.65,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 16,
+                  ),
+                  itemCount: results.length,
+                  itemBuilder: (context, index) {
+                    final drama = results[index];
+                    return DramaCard(
+                      drama: drama,
+                      width: double.infinity,
+                      height: 180,
+                      onTap: () => _playDrama(context, drama),
+                    );
+                  },
+                ),
+              ),
+            ],
           );
         },
       ),

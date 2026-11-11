@@ -17,6 +17,16 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  String _selectedCategory = 'Todos';
+  final List<String> _categories = [
+    'Todos',
+    'Tendencias',
+    'CEO',
+    'Venganza',
+    'Fantasía',
+    'Romance',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -32,7 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (!silent && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Ya cuentas con la versión más reciente de NovaDrama (v1.0.0+3).'),
+          content: Text('Ya cuentas con la versión más reciente de NovaDrama (v1.0.0+4).'),
           duration: Duration(seconds: 2),
         ),
       );
@@ -68,13 +78,24 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       if (mounted) {
-        context.read<DramaProvider>().loadHistory();
+        dramaProv.loadHistory();
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Cargando capítulos del drama... intenta de nuevo.')),
       );
     }
+  }
+
+  List<DramaModel> _filterByCategory(List<DramaModel> dramas) {
+    if (_selectedCategory == 'Todos' || _selectedCategory == 'Tendencias') {
+      return dramas;
+    }
+    return dramas.where((d) {
+      return d.genres.any((g) => g.toLowerCase().contains(_selectedCategory.toLowerCase())) ||
+          d.description.toLowerCase().contains(_selectedCategory.toLowerCase()) ||
+          d.title.toLowerCase().contains(_selectedCategory.toLowerCase());
+    }).toList();
   }
 
   @override
@@ -121,6 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context, prov, child) {
           final featured = prov.featured;
           final heroDrama = featured.isNotEmpty ? featured.first : null;
+          final filteredDramas = _filterByCategory(featured);
 
           return RefreshIndicator(
             color: Colors.redAccent,
@@ -131,46 +153,151 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Barra de búsqueda rápida
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const SearchScreen()),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E1E2E),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFF28283E)),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.search, color: Colors.grey, size: 20),
+                            SizedBox(width: 10),
+                            Text(
+                              'Buscar cualquier drama corto...',
+                              style: TextStyle(color: Colors.grey, fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
                   // Banner Hero: El poder viene de mis amantes
                   if (heroDrama != null) _buildHeroBanner(heroDrama),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
-                  // Continuar Viendo (Historial)
+                  // Filtros por Categoría
+                  SizedBox(
+                    height: 38,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _categories.length,
+                      itemBuilder: (context, index) {
+                        final cat = _categories[index];
+                        final isSelected = _selectedCategory == cat;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(
+                              cat,
+                              style: TextStyle(
+                                color: isSelected ? Colors.white : Colors.white70,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                fontSize: 12,
+                              ),
+                            ),
+                            selected: isSelected,
+                            selectedColor: Colors.redAccent,
+                            backgroundColor: const Color(0xFF1E1E2E),
+                            side: BorderSide(
+                              color: isSelected ? Colors.redAccent : const Color(0xFF28283E),
+                            ),
+                            onSelected: (selected) {
+                              if (selected) {
+                                setState(() {
+                                  _selectedCategory = cat;
+                                });
+                              }
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Continuar Viendo (Historial con botón para eliminar)
                   if (prov.history.isNotEmpty) ...[
                     _buildSectionHeader('Continuar Viendo', Icons.play_circle_fill),
                     const SizedBox(height: 12),
                     SizedBox(
-                      height: 220,
+                      height: 230,
                       child: ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         scrollDirection: Axis.horizontal,
                         itemCount: prov.history.length,
                         itemBuilder: (context, index) {
                           final drama = prov.history[index];
-                          return DramaCard(
-                            drama: drama,
-                            onTap: () => _playDrama(drama),
+                          return Stack(
+                            children: [
+                              DramaCard(
+                                drama: drama,
+                                onTap: () => _playDrama(drama),
+                              ),
+                              Positioned(
+                                top: 4,
+                                right: 16,
+                                child: InkWell(
+                                  onTap: () => prov.removeFromHistory(drama.id),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withAlpha(180),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.close, color: Colors.white70, size: 14),
+                                  ),
+                                ),
+                              ),
+                            ],
                           );
                         },
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                   ],
 
                   // Dramas de Moda (Tendencias)
-                  _buildSectionHeader('Tendencias del Momento', Icons.local_fire_department),
+                  _buildSectionHeader('Dramas Disponibles (${filteredDramas.length})', Icons.local_fire_department),
                   const SizedBox(height: 12),
-                  SizedBox(
-                    height: 260,
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      scrollDirection: Axis.horizontal,
-                      itemCount: featured.length,
+
+                  // Cuadrícula completa de todos los dramas disponibles
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: 0.65,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 16,
+                      ),
+                      itemCount: filteredDramas.length,
                       itemBuilder: (context, index) {
-                        final drama = featured[index];
+                        final drama = filteredDramas[index];
                         return DramaCard(
                           drama: drama,
+                          width: double.infinity,
+                          height: 180,
                           onTap: () => _playDrama(drama),
                         );
                       },
@@ -179,7 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   // Mis Favoritos
                   if (prov.favorites.isNotEmpty) ...[
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     _buildSectionHeader('Mis Favoritos', Icons.favorite),
                     const SizedBox(height: 12),
                     SizedBox(

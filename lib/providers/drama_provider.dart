@@ -44,31 +44,74 @@ class DramaProvider extends ChangeNotifier {
     await loadFavorites();
   }
 
+  Future<void> removeFromHistory(String dramaId) async {
+    await StorageService.removeFromHistory(dramaId);
+    await loadHistory();
+  }
+
   bool isFavorite(String dramaId) {
     return _favorites.any((d) => d.id == dramaId);
   }
 
+  /// Filtra coincidencias locales al instante mientras el usuario teclea
+  List<DramaModel> getLocalMatches(String query) {
+    final clean = query.trim().toLowerCase();
+    if (clean.isEmpty) return [];
+
+    final Set<String> seenIds = {};
+    final List<DramaModel> matches = [];
+
+    final allSources = [..._history, ..._favorites, ..._featured];
+    for (var d in allSources) {
+      if (!seenIds.contains(d.id)) {
+        final title = d.title.toLowerCase();
+        final desc = d.description.toLowerCase();
+        final genres = d.genres.map((g) => g.toLowerCase()).join(' ');
+        if (title.contains(clean) || desc.contains(clean) || genres.contains(clean)) {
+          seenIds.add(d.id);
+          matches.add(d);
+        }
+      }
+    }
+    return matches;
+  }
+
+  /// Búsqueda reactiva completa
   Future<void> search(String query) async {
     final cleanQuery = query.trim();
     if (cleanQuery.isEmpty) {
       _searchResults = [];
       _currentQuery = '';
+      _isLoadingSearch = false;
       notifyListeners();
       return;
     }
 
-    _isLoadingSearch = true;
     _currentQuery = cleanQuery;
+    // Mostrar de inmediato las coincidencias locales
+    _searchResults = getLocalMatches(cleanQuery);
+    _isLoadingSearch = true;
     notifyListeners();
 
     try {
-      _searchResults = await DramaService.searchDramas(cleanQuery);
+      final remoteResults = await DramaService.searchDramas(cleanQuery);
+
+      if (_currentQuery == cleanQuery) {
+        final Set<String> seenIds = _searchResults.map((d) => d.id).toSet();
+        for (var r in remoteResults) {
+          if (!seenIds.contains(r.id)) {
+            seenIds.add(r.id);
+            _searchResults.add(r);
+          }
+        }
+      }
     } catch (e) {
       debugPrint('Error en DramaProvider.search: $e');
-      _searchResults = [];
     } finally {
-      _isLoadingSearch = false;
-      notifyListeners();
+      if (_currentQuery == cleanQuery) {
+        _isLoadingSearch = false;
+        notifyListeners();
+      }
     }
   }
 
