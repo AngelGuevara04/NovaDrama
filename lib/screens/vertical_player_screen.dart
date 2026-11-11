@@ -177,12 +177,17 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Video centrado
+                  // Video escalado (Full Screen vertical o Contain)
                   if (isInitialized)
-                    Center(
-                      child: AspectRatio(
-                        aspectRatio: controller.value.aspectRatio,
-                        child: VideoPlayer(controller),
+                    SizedBox.expand(
+                      child: FittedBox(
+                        fit: player.videoFit,
+                        clipBehavior: Clip.hardEdge,
+                        child: SizedBox(
+                          width: controller.value.size.width,
+                          height: controller.value.size.height,
+                          child: VideoPlayer(controller),
+                        ),
                       ),
                     )
                   else
@@ -285,6 +290,17 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                                       ],
                                     ),
                                   ),
+                                  // Botón de Modo Pantalla Completa / Ajuste
+                                  IconButton(
+                                    icon: Icon(
+                                      player.videoFit == BoxFit.cover ? Icons.fullscreen_exit : Icons.fullscreen,
+                                      color: Colors.white,
+                                    ),
+                                    tooltip: player.videoFit == BoxFit.cover
+                                        ? 'Ver original centrado'
+                                        : 'Llenar pantalla completa',
+                                    onPressed: () => player.toggleVideoFit(),
+                                  ),
                                   // Botón de Favorito
                                   Consumer<DramaProvider>(
                                     builder: (context, dramaProv, _) {
@@ -330,7 +346,7 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Botonera de acciones (Episodios, Velocidad)
+                                  // Botonera de acciones (Episodios, Velocidad, Ajuste)
                                   Row(
                                     children: [
                                       // Botón Lista de Episodios
@@ -365,6 +381,23 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                                         icon: const Icon(Icons.speed, size: 16),
                                         label: Text('${player.playbackSpeed}x'),
                                       ),
+                                      const SizedBox(width: 8),
+                                      // Botón de ajuste de escala
+                                      InkWell(
+                                        onTap: () => player.toggleVideoFit(),
+                                        borderRadius: BorderRadius.circular(20),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white24,
+                                            borderRadius: BorderRadius.circular(20),
+                                          ),
+                                          child: Text(
+                                            player.videoFit == BoxFit.cover ? 'Pantalla Completa' : 'Original',
+                                            style: const TextStyle(color: Colors.white, fontSize: 12),
+                                          ),
+                                        ),
+                                      ),
                                       const Spacer(),
                                       // Indicador de gesto
                                       const Row(
@@ -372,7 +405,7 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                                           Icon(Icons.keyboard_arrow_up, color: Colors.white54, size: 16),
                                           SizedBox(width: 4),
                                           Text(
-                                            'Desliza para siguiente',
+                                            'Desliza',
                                             style: TextStyle(color: Colors.white54, fontSize: 11),
                                           ),
                                         ],
@@ -381,12 +414,12 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                                   ),
                                   const SizedBox(height: 12),
 
-                                  // Barra de progreso y tiempo
+                                  // Barra de progreso y tiempo relativo del capítulo
                                   if (isInitialized) ...[
                                     Row(
                                       children: [
                                         Text(
-                                          _formatDuration(controller.value.position),
+                                          _formatDuration(player.episodeCurrentPosition),
                                           style: const TextStyle(color: Colors.white70, fontSize: 12),
                                         ),
                                         Expanded(
@@ -399,20 +432,20 @@ class _VerticalPlayerScreenState extends State<VerticalPlayerScreen> {
                                               overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
                                             ),
                                             child: Slider(
-                                              value: controller.value.position.inSeconds
+                                              value: player.episodeCurrentPosition.inSeconds
                                                   .toDouble()
-                                                  .clamp(0.0, controller.value.duration.inSeconds.toDouble()),
-                                              max: controller.value.duration.inSeconds.toDouble() > 0
-                                                  ? controller.value.duration.inSeconds.toDouble()
+                                                  .clamp(0.0, player.episodeTotalDuration.inSeconds.toDouble()),
+                                              max: player.episodeTotalDuration.inSeconds.toDouble() > 0
+                                                  ? player.episodeTotalDuration.inSeconds.toDouble()
                                                   : 1.0,
                                               onChanged: (val) {
-                                                player.seekTo(Duration(seconds: val.toInt()));
+                                                player.seekRelativeInEpisode(Duration(seconds: val.toInt()));
                                               },
                                             ),
                                           ),
                                         ),
                                         Text(
-                                          _formatDuration(controller.value.duration),
+                                          _formatDuration(player.episodeTotalDuration),
                                           style: const TextStyle(color: Colors.white70, fontSize: 12),
                                         ),
                                       ],

@@ -32,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (!silent && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Ya cuentas con la versión más reciente de NovaDrama (v1.0.0+1).'),
+          content: Text('Ya cuentas con la versión más reciente de NovaDrama (v1.0.0+2).'),
           duration: Duration(seconds: 2),
         ),
       );

@@ -6,6 +6,8 @@ class EpisodeModel {
   final String? directStreamUrl;
   final String thumbnailUrl;
   final Duration duration;
+  final int startSeconds;
+  final int endSeconds;
   final bool isYouTube;
 
   EpisodeModel({
@@ -16,6 +18,8 @@ class EpisodeModel {
     this.directStreamUrl,
     required this.thumbnailUrl,
     this.duration = Duration.zero,
+    this.startSeconds = 0,
+    this.endSeconds = 0,
     this.isYouTube = true,
   });
 
@@ -27,6 +31,8 @@ class EpisodeModel {
         'directStreamUrl': directStreamUrl,
         'thumbnailUrl': thumbnailUrl,
         'durationMs': duration.inMilliseconds,
+        'startSeconds': startSeconds,
+        'endSeconds': endSeconds,
         'isYouTube': isYouTube,
       };
 
@@ -38,11 +44,15 @@ class EpisodeModel {
         directStreamUrl: json['directStreamUrl'] as String?,
         thumbnailUrl: json['thumbnailUrl'] as String? ?? '',
         duration: Duration(milliseconds: (json['durationMs'] as num?)?.toInt() ?? 0),
+        startSeconds: (json['startSeconds'] as num?)?.toInt() ?? 0,
+        endSeconds: (json['endSeconds'] as num?)?.toInt() ?? 0,
         isYouTube: json['isYouTube'] as bool? ?? true,
       );
 
   EpisodeModel copyWith({
     String? directStreamUrl,
+    int? startSeconds,
+    int? endSeconds,
   }) {
     return EpisodeModel(
       id: id,
@@ -52,6 +62,8 @@ class EpisodeModel {
       directStreamUrl: directStreamUrl ?? this.directStreamUrl,
       thumbnailUrl: thumbnailUrl,
       duration: duration,
+      startSeconds: startSeconds ?? this.startSeconds,
+      endSeconds: endSeconds ?? this.endSeconds,
       isYouTube: isYouTube,
     );
   }

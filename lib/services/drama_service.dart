@@ -6,19 +6,87 @@ import '../models/episode_model.dart';
 class DramaService {
   static final YoutubeExplode _yt = YoutubeExplode();
 
-  /// Dramas populares precargados para la pantalla de inicio
+  /// Palabras clave de canales trampa (reacciones, críticas con pantalla dividida y marcas de agua)
+  static final List<String> _spamKeywords = [
+    'critica',
+    'crítica',
+    'reacion',
+    'reaccion',
+    'reacción',
+    'reaction',
+    'review',
+    'datos y explicacion',
+    'explicacion',
+    'explicación',
+    'trailer',
+    'tráiler',
+    'resumen',
+    'lyric',
+    'musica',
+    'letra',
+    'cancion',
+  ];
+
+  static bool _isSpamTitle(String title) {
+    final lower = title.toLowerCase();
+    return _spamKeywords.any((k) => lower.contains(k));
+  }
+
+  /// Genera capítulos virtuales a partir de una película / serie completa continua
+  static List<EpisodeModel> createEpisodesFromFullVideo({
+    required String videoId,
+    required String dramaTitle,
+    required int totalDurationSeconds,
+    required String thumbnailUrl,
+    int episodeCount = 45,
+  }) {
+    final episodes = <EpisodeModel>[];
+    if (totalDurationSeconds <= 0) return episodes;
+
+    final epDuration = (totalDurationSeconds / episodeCount).round();
+
+    for (int i = 0; i < episodeCount; i++) {
+      final start = i * epDuration;
+      final end = (i == episodeCount - 1) ? totalDurationSeconds : (i + 1) * epDuration;
+      episodes.add(
+        EpisodeModel(
+          id: '${videoId}_ep_${i + 1}',
+          title: 'Capítulo ${i + 1}',
+          episodeNumber: i + 1,
+          videoUrl: videoId,
+          thumbnailUrl: thumbnailUrl,
+          duration: Duration(seconds: end - start),
+          startSeconds: start,
+          endSeconds: end,
+          isYouTube: true,
+        ),
+      );
+    }
+    return episodes;
+  }
+
+  /// Dramas populares precargados con fuentes limpias verticales verificadas
   static List<DramaModel> getFeaturedDramas() {
+    // 4Ng0WYUQtXA es el video oficial limpio en vertical de NetShort (2:36:52 = 9412 segundos)
+    const poderAmantesVideoId = '4Ng0WYUQtXA';
+    final poderAmantesEpisodes = createEpisodesFromFullVideo(
+      videoId: poderAmantesVideoId,
+      dramaTitle: 'El poder viene de mis amantes',
+      totalDurationSeconds: 9412,
+      thumbnailUrl: 'https://i.ytimg.com/vi/4Ng0WYUQtXA/maxresdefault.jpg',
+      episodeCount: 45,
+    );
+
     return [
       DramaModel(
         id: 'drama_poder_amantes',
         title: 'El poder viene de mis amantes',
         description:
-            'Tras sufrir una cruel humillación pública por parte de su propia familia, despierta un místico Sistema de Apareamiento y Poder donde cada vínculo la hace invencible para reclamar su trono.',
-        coverUrl:
-            'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&auto=format&fit=crop&q=80',
-        author: 'NetShort Drama',
-        genres: ['Romance', 'Fantasía', 'Venganza', 'Sobrenatural'],
-        episodes: [],
+            'Humillada por su propia familia en la selección de esposas, Claire despierta el místico Sistema de Apareamiento y Poder: cada unión romántica la hace más fuerte para reclamar su destino como Soberana Dragón.',
+        coverUrl: 'https://i.ytimg.com/vi/4Ng0WYUQtXA/maxresdefault.jpg',
+        author: 'NetShort Oficial',
+        genres: ['Romance', 'Fantasía', 'Venganza', 'NetShort'],
+        episodes: poderAmantesEpisodes,
       ),
       DramaModel(
         id: 'drama_ceo_oculto',
@@ -53,44 +121,35 @@ class DramaService {
         genres: ['Fantasía', 'Romance', 'Magia'],
         episodes: [],
       ),
-      DramaModel(
-        id: 'drama_segunda_oportunidad',
-        title: 'La segunda oportunidad de la dama',
-        description:
-            'Tras una muerte trágica, viaja al pasado al día de su boda para reescribir su historia y rechazar al hombre que arruinó a su familia.',
-        coverUrl:
-            'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&auto=format&fit=crop&q=80',
-        author: 'GoodShort',
-        genres: ['Reencarnación', 'Romance', 'Venganza'],
-        episodes: [],
-      ),
     ];
   }
 
-  /// Busca dramas en YouTube (playlists o listas de videos)
+  /// Busca dramas filtrando canales trampa y organizando capítulos reales
   static Future<List<DramaModel>> searchDramas(String query) async {
     final List<DramaModel> results = [];
     try {
       final sanitizedQuery = query.trim();
       if (sanitizedQuery.isEmpty) return results;
 
-      // Buscar playlists relacionadas
+      // 1. Buscar playlists (series estructuradas)
       final playlistSearch = await _yt.search.searchContent(
-        '$sanitizedQuery drama corto capitulo',
+        '$sanitizedQuery drama capitulo completo',
       );
-
-      final Map<String, List<EpisodeModel>> groupedByAuthor = {};
 
       for (var item in playlistSearch) {
         if (item is SearchPlaylist) {
+          if (_isSpamTitle(item.title)) continue;
+
           try {
             final playlist = await _yt.playlists.get(item.id);
             final videoList = await _yt.playlists.getVideos(item.id).take(60).toList();
 
-            if (videoList.isNotEmpty) {
+            final cleanVideos = videoList.where((v) => !_isSpamTitle(v.title)).toList();
+
+            if (cleanVideos.isNotEmpty) {
               final episodes = <EpisodeModel>[];
               int epNum = 1;
-              for (var v in videoList) {
+              for (var v in cleanVideos) {
                 episodes.add(
                   EpisodeModel(
                     id: v.id.value,
@@ -110,7 +169,7 @@ class DramaService {
                   title: playlist.title,
                   description: playlist.description.isNotEmpty
                       ? playlist.description
-                      : 'Serie de drama vertical con ${episodes.length} episodios.',
+                      : 'Serie con ${episodes.length} episodios completos.',
                   coverUrl: episodes.first.thumbnailUrl,
                   author: playlist.author,
                   playlistId: playlist.id.value,
@@ -122,73 +181,50 @@ class DramaService {
           } catch (e) {
             debugPrint('Error procesando playlist ${item.id}: $e');
           }
-        } else if (item is SearchVideo) {
-          final authorName = item.author.isNotEmpty ? item.author : 'Drama Channel';
-          groupedByAuthor.putIfAbsent(authorName, () => []).add(
-                EpisodeModel(
-                  id: item.id.value,
-                  title: item.title,
-                  episodeNumber: (groupedByAuthor[authorName]?.length ?? 0) + 1,
-                  videoUrl: item.id.value,
-                  thumbnailUrl: item.thumbnails.first.url.toString(),
-                  duration: _parseDuration(item.duration),
-                  isYouTube: true,
-                ),
-              );
         }
       }
 
-      // Si no encontramos muchas playlists, agrupamos los videos individuales encontrados
-      if (results.length < 3) {
-        for (var entry in groupedByAuthor.entries) {
-          if (entry.value.length >= 2) {
-            final episodes = entry.value;
+      // 2. Buscar videos individuales filtrando los títulos trampa/reacciones
+      final videoQueries = [
+        '$sanitizedQuery netshort drama',
+        '$sanitizedQuery minidrama completo español',
+        '$sanitizedQuery drama corto capitulo',
+      ];
+
+      for (var vQuery in videoQueries) {
+        if (results.length >= 8) break;
+
+        final videoSearch = await _yt.search.search(vQuery);
+
+        for (var v in videoSearch) {
+          if (_isSpamTitle(v.title)) continue;
+          if (results.any((r) => r.id == 'vid_${v.id.value}')) continue;
+
+          final durationSec = v.duration?.inSeconds ?? 0;
+
+          // Si el video dura más de 12 minutos, es un drama completo compilado
+          if (durationSec > 720) {
+            final epCount = (durationSec / 180).clamp(10, 60).round();
+            final eps = createEpisodesFromFullVideo(
+              videoId: v.id.value,
+              dramaTitle: v.title,
+              totalDurationSeconds: durationSec,
+              thumbnailUrl: v.thumbnails.highResUrl,
+              episodeCount: epCount,
+            );
+
             results.add(
               DramaModel(
-                id: 'chan_${entry.key.hashCode}',
-                title: '$sanitizedQuery - ${entry.key}',
-                description: 'Episodios y capítulos recopilados de ${entry.key}.',
-                coverUrl: episodes.first.thumbnailUrl,
-                author: entry.key,
-                genres: ['Drama Corto', 'Capítulos'],
-                episodes: episodes,
+                id: 'vid_${v.id.value}',
+                title: v.title,
+                description: 'Drama completo en español con $epCount capítulos.',
+                coverUrl: v.thumbnails.highResUrl,
+                author: v.author,
+                genres: ['Drama Completo', 'HD'],
+                episodes: eps,
               ),
             );
           }
-        }
-      }
-
-      // Si aún no hay resultados, creamos una serie con los videos directos
-      if (results.isEmpty) {
-        final videoSearch = await _yt.search.search('$sanitizedQuery drama español');
-        final episodes = <EpisodeModel>[];
-        int epNum = 1;
-        for (var v in videoSearch.take(30)) {
-          episodes.add(
-            EpisodeModel(
-              id: v.id.value,
-              title: v.title,
-              episodeNumber: epNum++,
-              videoUrl: v.id.value,
-              thumbnailUrl: v.thumbnails.highResUrl,
-              duration: v.duration ?? Duration.zero,
-              isYouTube: true,
-            ),
-          );
-        }
-
-        if (episodes.isNotEmpty) {
-          results.add(
-            DramaModel(
-              id: 'search_${query.hashCode}',
-              title: query,
-              description: 'Capítulos y videos encontrados para "$query".',
-              coverUrl: episodes.first.thumbnailUrl,
-              author: 'Varios creadores',
-              genres: ['Drama', 'Episodios'],
-              episodes: episodes,
-            ),
-          );
         }
       }
     } catch (e) {
@@ -197,37 +233,18 @@ class DramaService {
     return results;
   }
 
-  /// Carga los episodios de un drama si aún no se han cargado
+  /// Carga episodios para dramas de catálogo si no los tienen
   static Future<DramaModel> loadEpisodesForDrama(DramaModel drama) async {
     if (drama.episodes.isNotEmpty) {
       return drama;
     }
 
     try {
-      final query = '${drama.title} drama capitulo';
-      final search = await _yt.search.search(query);
-
-      final episodes = <EpisodeModel>[];
-      int epNum = 1;
-
-      for (var v in search.take(45)) {
-        episodes.add(
-          EpisodeModel(
-            id: v.id.value,
-            title: v.title,
-            episodeNumber: epNum++,
-            videoUrl: v.id.value,
-            thumbnailUrl: v.thumbnails.highResUrl,
-            duration: v.duration ?? Duration.zero,
-            isYouTube: true,
-          ),
-        );
-      }
-
-      if (episodes.isNotEmpty) {
+      final search = await searchDramas(drama.title);
+      if (search.isNotEmpty && search.first.episodes.isNotEmpty) {
         return drama.copyWith(
-          episodes: episodes,
-          coverUrl: episodes.first.thumbnailUrl,
+          episodes: search.first.episodes,
+          coverUrl: search.first.coverUrl,
         );
       }
     } catch (e) {
@@ -237,18 +254,18 @@ class DramaService {
     return drama;
   }
 
-  /// Extrae la URL de video directa (.mp4) para reproducirla en video_player
+  /// Extrae la URL de video directa (.mp4) de mayor calidad reproducible
   static Future<String?> extractStreamUrl(String videoId) async {
     try {
       final manifest = await _yt.videos.streamsClient.getManifest(videoId);
 
-      // Prioridad 1: Muxed streams (video + audio integrado)
+      // Prioridad 1: Muxed streams (audio + video integrado)
       if (manifest.muxed.isNotEmpty) {
         final muxedStream = manifest.muxed.withHighestBitrate();
         return muxedStream.url.toString();
       }
 
-      // Prioridad 2: Si no hay muxed, videoOnly de mayor resolución
+      // Prioridad 2: Video stream
       if (manifest.videoOnly.isNotEmpty) {
         final videoStream = manifest.videoOnly.withHighestBitrate();
         return videoStream.url.toString();
